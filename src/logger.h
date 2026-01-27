@@ -28,6 +28,12 @@ public:
      */
     void log(const std::string& clientInfo, const char* data, size_t size);
 
+    /**
+     * @brief Получение текущей даты и времени в формате строки
+     * @return Строка с датой и временем
+     */
+    static std::string currentDateTime();
+
 private:
     std::ofstream m_logFile;  // Файл для записи логов
     std::mutex m_mutex;       // Мьютекс для потокобезопасности

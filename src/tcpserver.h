@@ -14,7 +14,7 @@ struct ev_timer;
 /**
  * @brief Класс для реализации неблокирующего эхо-сервера на libev
  */
-class EchoServer {
+class TcpServer {
 public:
     /**
      * @brief Конструктор сервера
@@ -22,14 +22,14 @@ public:
      * @param unixSocketPath Путь к Unix-сокету (пустая строка для отключения)
      * @param logFilePath Путь к файлу логов
      */
-    EchoServer(int port = 5000,
+    TcpServer(int port = 5000,
                const std::string& unixSocketPath = "",
                const std::string& logFilePath = "server.log");
 
     /**
      * @brief Деструктор сервера
      */
-    ~EchoServer();
+    ~TcpServer();
 
     /**
      * @brief Запуск основного цикла сервера
@@ -125,7 +125,7 @@ private:
     void logClientData(int clientFd, const char* data, size_t size);
 
     // Экземпляр для доступа к методам класса из статических callback-функций
-    static EchoServer* s_instance;
+    static TcpServer* s_instance;
 };
 
 #endif // ECHOSERVER_H
