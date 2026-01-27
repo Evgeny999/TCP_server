@@ -1,0 +1,8 @@
+BasedOnStyle: google
+AccessModifierOffset: -2
+DerivePointerAlignment: false
+IncludeBlocks: Preserve
+IndentAccessModifiers: false
+MaxEmptyLinesToKeep: 1
+SeparateDefinitionBlocks: Always
+#AllowShortFunctionsOnASingleLine: Inline
