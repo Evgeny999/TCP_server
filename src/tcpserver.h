@@ -1,10 +1,21 @@
 #ifndef ECHOSERVER_H
 #define ECHOSERVER_H
 
+#include <arpa/inet.h>
+#include <errno.h>
+#include <ev.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <iostream>
 #include <memory>
-#include <string>
+#include <system_error>
 #include <unordered_map>
 #include <vector>
+#include "logger.h"
 
 // forward declaration объявление структур libev
 struct ev_loop;
@@ -46,10 +57,12 @@ private:
     int fd;               // Файловый дескриптор
     ev_io* readWatcher;   // Watcher для чтения
     ev_io* writeWatcher;  // Watcher для записи
+    std::vector<char> buffer;            // Буфер для данных
+    std::string peerAddress;             // Адрес клиента
   };
 
   // Основной цикл событий
-  ev_loop* m_loop;
+  struct ev_loop* m_loop;
 
   // Параметры сервера
   int m_tcpPort;
@@ -86,21 +99,21 @@ private:
    * @param w Watcher, который сработал
    * @param revents События
    */
-  static void acceptCallback(ev_loop* loop, ev_io* w, int revents);
+  static void acceptCallback(struct ev_loop* loop, ev_io* w, int revents);
 
   /**
    * @brief Обработчик чтения данных от клиента
    * @param w Watcher, который сработал
    * @param revents События
    */
-  static void readCallback(ev_loop* loop, ev_io* w, int revents);
+  static void readCallback(struct ev_loop* loop, ev_io* w, int revents);
 
   /**
    * @brief Обработчик записи данных клиенту
    * @param w Watcher, который сработал
    * @param revents События
    */
-  static void writeCallback(ev_loop* loop, ev_io* w, int revents);
+  static void writeCallback(struct ev_loop* loop, ev_io* w, int revents);
 
   /**
    * @brief Закрытие соединения с клиентом
