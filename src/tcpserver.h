@@ -54,11 +54,11 @@ public:
 private:
   // Структура для хранения информации о клиенте
   struct Client {
-    int fd;               // Файловый дескриптор
-    ev_io* readWatcher;   // Watcher для чтения
-    ev_io* writeWatcher;  // Watcher для записи
-    std::vector<char> buffer;            // Буфер для данных
-    std::string peerAddress;             // Адрес клиента
+    int fd;                    // Файловый дескриптор
+    ev_io* readWatcher;        // Watcher для чтения
+    ev_io* writeWatcher;       // Watcher для записи
+    std::vector<char> buffer;  // Буфер для данных
+    std::string peerAddress;   // Адрес клиента
   };
 
   // Основной цикл событий
@@ -78,6 +78,9 @@ private:
 
   // Файловый дескриптор для TCP сокета
   int m_tcpFd;
+
+  // Файловый дескриптор для Unix сокета
+  int m_unixFd;
 
   // Флаг работы сервера
   bool m_running;

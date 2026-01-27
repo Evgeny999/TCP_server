@@ -77,6 +77,52 @@ bool TcpServer::initTcpServer() {
   return true;
 }
 
+bool TcpServer::initUnixServer() {
+  if (m_unixSocketPath.empty()) {
+    return true;  // Unix-сокет не требуется
+  }
+
+  // Создаем Unix сокет
+  m_unixFd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
+  if (m_unixFd < 0) {
+    std::cerr << "Error creating Unix socket: " << strerror(errno) << std::endl;
+    return false;
+  }
+
+  // Удаляем старый сокетный файл, если он существует
+  unlink(m_unixSocketPath.c_str());
+
+  // Настраиваем адрес Unix сокета
+  struct sockaddr_un serverAddr;
+  memset(&serverAddr, 0, sizeof(serverAddr));
+  serverAddr.sun_family = AF_UNIX;
+  strncpy(serverAddr.sun_path, m_unixSocketPath.c_str(),
+          sizeof(serverAddr.sun_path) - 1);
+
+  // Привязываем сокет к файлу
+  if (bind(m_unixFd, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+    std::cerr << "Error binding Unix socket: " << strerror(errno) << std::endl;
+    close(m_unixFd);
+    return false;
+  }
+
+  // Устанавливаем права доступа к файлу сокета
+  chmod(m_unixSocketPath.c_str(), 0666);
+
+  // Начинаем прослушивание
+  if (listen(m_unixFd, SOMAXCONN) < 0) {
+    std::cerr << "Error listening on Unix socket: " << strerror(errno)
+              << std::endl;
+    close(m_unixFd);
+    unlink(m_unixSocketPath.c_str());
+    return false;
+  }
+
+  std::cout << "Unix socket server listening on " << m_unixSocketPath
+            << std::endl;
+  return true;
+}
+
 void TcpServer::acceptCallback(struct ev_loop* loop, ev_io* w, int revents) {
   if (!s_instance) return;
 
@@ -128,41 +174,43 @@ void TcpServer::acceptCallback(struct ev_loop* loop, ev_io* w, int revents) {
 
 void TcpServer::readCallback(struct ev_loop* loop, ev_io* w, int revents) {
   if (revents & EV_ERROR) {
-    std::cerr << "Error in write callback" << std::endl;
+    std::cerr << "Error in read callback" << std::endl;
     return;
   }
 
   Client* client = static_cast<Client*>(w->data);
-  if (!client || client->buffer.empty()) {
-    // Нет данных для отправки, останавливаем watcher
-    ev_io_stop(loop, w);
-    return;
-  }
+  if (!client || !s_instance) return;
 
-  // Отправляем данные из буфера
-  ssize_t bytesSent =
-      send(client->fd, client->buffer.data(), client->buffer.size(), 0);
+  // Буфер для чтения данных
+  char buffer[4096];
+  ssize_t bytesRead = recv(client->fd, buffer, sizeof(buffer), 0);
 
-  if (bytesSent > 0) {
-    // Удаляем отправленные данные из буфера
-    client->buffer.erase(client->buffer.begin(),
-                         client->buffer.begin() + bytesSent);
+  if (bytesRead > 0) {
+    // Логируем полученные данные
+    s_instance->logClientData(client->fd, buffer, bytesRead);
 
-    std::cout << "Sent " << bytesSent << " bytes to " << client->peerAddress
-              << std::endl;
+    // Сохраняем данные в буфер клиента для отправки обратно
+    client->buffer.insert(client->buffer.end(), buffer, buffer + bytesRead);
 
-    // Если буфер пуст, останавливаем watcher для записи
-    if (client->buffer.empty()) {
-      ev_io_stop(loop, w);
+    // Если есть данные для отправки, активируем watcher для записи
+    if (!client->buffer.empty()) {
+      ev_io_stop(loop, client->writeWatcher);
+      ev_io_set(client->writeWatcher, client->fd, EV_WRITE);
+      ev_io_start(loop, client->writeWatcher);
     }
-  } else if (bytesSent < 0) {
-    // Ошибка при отправке
+
+    std::cout << "Received " << bytesRead << " bytes from "
+              << client->peerAddress << std::endl;
+  } else if (bytesRead == 0) {
+    // Клиент закрыл соединение
+    std::cout << "Connection closed by " << client->peerAddress << std::endl;
+    s_instance->closeClient(client->fd);
+  } else {
+    // Ошибка при чтении
     if (errno != EAGAIN && errno != EWOULDBLOCK) {
-      std::cerr << "Error writing to " << client->peerAddress << ": "
+      std::cerr << "Error reading from " << client->peerAddress << ": "
                 << strerror(errno) << std::endl;
-      if (s_instance) {
-        s_instance->closeClient(client->fd);
-      }
+      s_instance->closeClient(client->fd);
     }
   }
 }
@@ -208,13 +256,107 @@ void TcpServer::writeCallback(struct ev_loop* loop, ev_io* w, int revents) {
   }
 }
 
-void TcpServer::closeClient(int clientFd) {}
+void TcpServer::closeClient(int clientFd) {
+  auto it = m_clients.find(clientFd);
+  if (it == m_clients.end()) return;
 
-std::string TcpServer::getPeerAddress(int fd) const {}
+  // Останавливаем и удаляем watchers
+  if (it->second->readWatcher) {
+    ev_io_stop(m_loop, it->second->readWatcher);
+    delete it->second->readWatcher;
+  }
 
-void TcpServer::logClientData(int clientFd, const char* data, size_t size) {}
+  if (it->second->writeWatcher) {
+    ev_io_stop(m_loop, it->second->writeWatcher);
+    delete it->second->writeWatcher;
+  }
 
-void TcpServer::run() {}
+  // Закрываем файловый дескриптор
+  close(clientFd);
+
+  std::cout << "Closed connection from " << it->second->peerAddress
+            << " (fd: " << clientFd << ")" << std::endl;
+
+  // Удаляем клиента из карты
+  m_clients.erase(it);
+}
+
+std::string TcpServer::getPeerAddress(int fd) const {
+  struct sockaddr_storage addr;
+  socklen_t addrLen = sizeof(addr);
+
+  if (getpeername(fd, (struct sockaddr*)&addr, &addrLen) < 0) {
+    return "unknown";
+  }
+
+  char host[INET6_ADDRSTRLEN];
+  char port[6];
+
+  if (addr.ss_family == AF_INET) {
+    struct sockaddr_in* s = (struct sockaddr_in*)&addr;
+    inet_ntop(AF_INET, &s->sin_addr, host, sizeof(host));
+    snprintf(port, sizeof(port), "%d", ntohs(s->sin_port));
+    return std::string(host) + ":" + port;
+  } else if (addr.ss_family == AF_INET6) {
+    struct sockaddr_in6* s = (struct sockaddr_in6*)&addr;
+    inet_ntop(AF_INET6, &s->sin6_addr, host, sizeof(host));
+    snprintf(port, sizeof(port), "%d", ntohs(s->sin6_port));
+    return std::string(host) + ":" + port;
+  } else if (addr.ss_family == AF_UNIX) {
+    return "unix-socket";
+  }
+
+  return "unknown";
+}
+
+void TcpServer::logClientData(int clientFd, const char* data, size_t size) {
+  static Logger logger(m_logFilePath);
+  std::string clientInfo = getPeerAddress(clientFd);
+  logger.log(clientInfo, data, size);
+}
+
+void TcpServer::run() {
+  // Инициализируем основной цикл событий
+  m_loop = ev_loop_new(EVFLAG_AUTO);
+  if (!m_loop) {
+    std::cerr << "Error creating event loop" << std::endl;
+    return;
+  }
+
+  // Инициализируем TCP сервер
+  if (m_tcpPort > 0) {
+    if (!initTcpServer()) {
+      std::cerr << "Failed to initialize TCP server" << std::endl;
+      return;
+    }
+
+    // Создаем watcher для принятия TCP подключений
+    m_tcpAcceptWatcher = new ev_io();
+    ev_io_init(m_tcpAcceptWatcher, acceptCallback, m_tcpFd, EV_READ);
+    ev_io_start(m_loop, m_tcpAcceptWatcher);
+  }
+
+  // Инициализируем Unix сокет сервер
+  if (!m_unixSocketPath.empty()) {
+    if (!initUnixServer()) {
+      std::cerr << "Failed to initialize Unix socket server" << std::endl;
+      return;
+    }
+
+    // Создаем watcher для принятия Unix сокет подключений
+    m_unixAcceptWatcher = new ev_io();
+    ev_io_init(m_unixAcceptWatcher, acceptCallback, m_unixFd, EV_READ);
+    ev_io_start(m_loop, m_unixAcceptWatcher);
+  }
+
+  std::cout << "Echo server started" << std::endl;
+  std::cout << "Press Ctrl+C to stop" << std::endl;
+
+  m_running = true;
+
+  // Запускаем основной цикл событий
+  ev_run(m_loop, 0);
+}
 
 void TcpServer::stop() {
   if (!m_running) return;
@@ -249,6 +391,12 @@ void TcpServer::stop() {
   if (m_tcpFd >= 0) {
     close(m_tcpFd);
     m_tcpFd = -1;
+  }
+
+  if (m_unixFd >= 0) {
+    close(m_unixFd);
+    unlink(m_unixSocketPath.c_str());
+    m_unixFd = -1;
   }
 
   // Уничтожаем основной цикл событий
