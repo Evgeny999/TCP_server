@@ -1,5 +1,5 @@
-#ifndef ECHOSERVER_H
-#define ECHOSERVER_H
+#ifndef TCPSERVER_H
+#define TCPSERVER_H
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -148,4 +148,4 @@ private:
   static TcpServer* s_instance;
 };
 
-#endif  // ECHOSERVER_H
+#endif  // TCPSERVER_H
