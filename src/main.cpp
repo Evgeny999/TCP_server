@@ -1,14 +1,14 @@
-#include "tcpserver.h"
-#include <iostream>
 #include <csignal>
 #include <cstdlib>
+#include <iostream>
 #include <memory>
+#include "tcpserver.h"
 
-// Используем умный указатель
 std::unique_ptr<TcpServer> g_server;
 
 void signalHandler(int signal) {
-  std::cout << "\nReceived signal " << signal << ", shutting down..." << std::endl;
+  std::cout << "\nReceived signal " << signal << ", shutting down..."
+            << std::endl;
 
   if (g_server) {
     g_server->stop();
@@ -18,7 +18,8 @@ void signalHandler(int signal) {
 
   std::cout << "Shutdown complete" << std::endl;
 
-  // Выходим немедленно
+  // Без exit(): деструкторы вызовутся, libev попытается работать → segfault
+  // С exit(): процесс убивается немедленно
   std::exit(0);
 }
 
