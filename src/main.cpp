@@ -1,13 +1,14 @@
-#include "tcpserver.h"
-#include <iostream>
 #include <csignal>
 #include <cstdlib>
+#include <iostream>
+#include "tcpserver.h"
 
 TcpServer* g_server = nullptr;
 
 // Обработчик сигнала для graceful shutdown
 void signalHandler(int signal) {
-  std::cout << "\nReceived signal " << signal << ", shutting down..." << std::endl;
+  std::cout << "\nReceived signal " << signal << ", shutting down..."
+            << std::endl;
   if (g_server) {
     g_server->stop();
   }
