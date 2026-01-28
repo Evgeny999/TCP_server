@@ -10,9 +10,11 @@ Logger::Logger(const std::string& filename) {
 }
 
 Logger::~Logger() {
+  std::cout << "here30";
   if (m_logFile.is_open()) {
     m_logFile.close();
   }
+  std::cout << "here40";
 }
 
 void Logger::log(const std::string& clientInfo, const char* data, size_t size) {

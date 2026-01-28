@@ -22,6 +22,8 @@ struct ev_loop;
 struct ev_io;
 struct ev_timer;
 
+class Logger;
+
 /**
  * @brief Класс для реализации неблокирующего эхо-сервера на libev
  */
@@ -84,6 +86,9 @@ private:
 
   // Флаг работы сервера
   bool m_running;
+
+  // Логгер как член класса
+  std::unique_ptr<Logger> m_logger;
 
   /**
    * @brief Инициализация TCP сервера

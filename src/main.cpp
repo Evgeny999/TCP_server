@@ -1,48 +1,57 @@
+#include "tcpserver.h"
+#include <iostream>
 #include <csignal>
 #include <cstdlib>
-#include <iostream>
-#include "tcpserver.h"
+#include <memory>
 
-TcpServer* g_server = nullptr;
+// Используем умный указатель
+std::unique_ptr<TcpServer> g_server;
 
-// Обработчик сигнала для graceful shutdown
 void signalHandler(int signal) {
-  std::cout << "\nReceived signal " << signal << ", shutting down..."
-            << std::endl;
+  std::cout << "\nReceived signal " << signal << ", shutting down..." << std::endl;
+
   if (g_server) {
     g_server->stop();
+    // Явно уничтожаем сервер перед выходом
+    g_server.reset();
   }
+
+  std::cout << "Shutdown complete" << std::endl;
+
+  // Выходим немедленно
+  std::exit(0);
 }
 
 int main(int argc, char* argv[]) {
-  // Регистрируем обработчики сигналов
-  std::signal(SIGINT, signalHandler);
-  std::signal(SIGTERM, signalHandler);
+  // Установка обработчиков сигналов
+  struct sigaction sa;
+  sa.sa_handler = signalHandler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+
+  sigaction(SIGINT, &sa, nullptr);
+  sigaction(SIGTERM, &sa, nullptr);
+
+  // Игнорируем SIGPIPE
+  signal(SIGPIPE, SIG_IGN);
 
   try {
-    // Создаем и запускаем сервер
-    // Можно указать параметры: порт, путь к Unix-сокету, файл логов
-    std::string unixSocketPath = "";
-    std::string logFilePath = "server.log";
-
-    // Пример использования аргументов командной строки
-    if (argc > 1) {
-      unixSocketPath = argv[1];
-    }
-    if (argc > 2) {
-      logFilePath = argv[2];
-    }
-
-    TcpServer server(5000, unixSocketPath, logFilePath);
-    g_server = &server;
-
-    server.run();
+    g_server = std::make_unique<TcpServer>(5000, "server.log");
+    std::cout << "Starting TCP echo server on port 5000..." << std::endl;
+    g_server->run();
 
   } catch (const std::exception& e) {
-    std::cerr << "Fatal error: " << e.what() << std::endl;
+    std::cerr << "Error: " << e.what() << std::endl;
+    return 1;
+  } catch (...) {
+    std::cerr << "Unknown error occurred" << std::endl;
     return 1;
   }
 
-  std::cout << "Server terminated normally" << std::endl;
+  // Очищаем перед выходом
+  if (g_server) {
+    g_server.reset();
+  }
+
   return 0;
 }

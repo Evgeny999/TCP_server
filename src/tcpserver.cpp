@@ -29,11 +29,23 @@ TcpServer::TcpServer(int port, const std::string& unixSocketPath,
       m_unixAcceptWatcher(nullptr),
       m_tcpFd(-1),
       m_running(false) {
+  // Инициализируем логгер
+  m_logger = std::make_unique<Logger>(logFilePath);
+
   // Сохраняем указатель на экземпляр для статических callback-функций
   s_instance = this;
 }
 
-TcpServer::~TcpServer() { stop(); }
+TcpServer::~TcpServer() {  // Останавливаем сервер если еще работает
+  if (m_running) {
+    stop();
+  }
+
+  // Обнуляем статический указатель
+  if (s_instance == this) {
+    s_instance = nullptr;
+  }
+}
 
 bool TcpServer::initTcpServer() {
   // Создаем TCP сокет
@@ -310,9 +322,10 @@ std::string TcpServer::getPeerAddress(int fd) const {
 }
 
 void TcpServer::logClientData(int clientFd, const char* data, size_t size) {
-  static Logger logger(m_logFilePath);
   std::string clientInfo = getPeerAddress(clientFd);
-  logger.log(clientInfo, data, size);
+  if (m_logger) {
+    m_logger->log(clientInfo, data, size);
+  }
 }
 
 void TcpServer::run() {
@@ -359,6 +372,7 @@ void TcpServer::run() {
 }
 
 void TcpServer::stop() {
+
   if (!m_running) return;
 
   m_running = false;
@@ -404,6 +418,9 @@ void TcpServer::stop() {
     ev_loop_destroy(m_loop);
     m_loop = nullptr;
   }
+
+  // Уничтожаем логгер
+  m_logger.reset();
 
   std::cout << "Server stopped" << std::endl;
 }
