@@ -5,7 +5,18 @@
 
 TcpServer* g_server = nullptr;
 
+// Обработчик сигнала для graceful shutdown
+void signalHandler(int signal) {
+  std::cout << "\nReceived signal " << signal << ", shutting down..." << std::endl;
+  if (g_server) {
+    g_server->stop();
+  }
+}
+
 int main(int argc, char* argv[]) {
+  // Регистрируем обработчики сигналов
+  std::signal(SIGINT, signalHandler);
+  std::signal(SIGTERM, signalHandler);
 
   try {
     // Создаем и запускаем сервер
