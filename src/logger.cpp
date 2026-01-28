@@ -29,7 +29,7 @@ void Logger::log(const std::string& clientInfo, const char* data, size_t size) {
 
     // Записываем данные, заменяя непечатаемые символы
     for (size_t i = 0; i < size; ++i) {
-      if (data[i] > 32 && data[i] <= 126) {
+      if (data[i] >= 32 && data[i] <= 126) {
         m_logFile << data[i];
       } else {
         m_logFile << "\\x" << std::hex << std::setw(2) << std::setfill('0')
@@ -38,6 +38,7 @@ void Logger::log(const std::string& clientInfo, const char* data, size_t size) {
     }
 
     m_logFile << "\", Size: " << std::dec << size << " bytes" << std::endl;
+    m_logFile.flush();
   } catch (const std::exception& e) {
     std::cerr << "Logging error: " << e.what() << std::endl;
   }
