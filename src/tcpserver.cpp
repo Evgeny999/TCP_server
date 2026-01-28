@@ -362,7 +362,7 @@ void TcpServer::run() {
     ev_io_start(m_loop, m_unixAcceptWatcher);
   }
 
-  std::cout << "Echo server started" << std::endl;
+  std::cout << "Tcp server started" << std::endl;
   std::cout << "Press Ctrl+C to stop" << std::endl;
 
   m_running = true;
@@ -372,7 +372,6 @@ void TcpServer::run() {
 }
 
 void TcpServer::stop() {
-
   if (!m_running) return;
 
   m_running = false;

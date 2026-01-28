@@ -9,11 +9,7 @@ Logger::Logger(const std::string& filename) {
   }
 }
 
-Logger::~Logger() {
-  if (m_logFile.is_open()) {
-    m_logFile.close();
-  }
-}
+Logger::~Logger() {}
 
 void Logger::log(const std::string& clientInfo, const char* data, size_t size) {
   std::lock_guard<std::mutex> lock(m_mutex);

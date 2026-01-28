@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
   signal(SIGPIPE, SIG_IGN);
 
   try {
-    g_server = std::make_unique<TcpServer>(5000, "server.log");
+    g_server = std::make_unique<TcpServer>(5000, "", "server.log");
     std::cout << "Starting TCP echo server on port 5000..." << std::endl;
     g_server->run();
 
