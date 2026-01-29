@@ -24,8 +24,7 @@ public:
    * @param port Порт для прослушивания TCP
    * @param logFilePath Путь к файлу логов
    */
-  TcpServer(int port = 5000,
-            const std::string& logFilePath = "server.log");
+  TcpServer(int port = 5000, const std::string& logFilePath = "server.log");
 
   TcpServer(const TcpServer& other) = delete;
   TcpServer(TcpServer&& other) = delete;

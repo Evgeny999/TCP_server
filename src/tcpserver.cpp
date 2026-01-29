@@ -1,6 +1,5 @@
 #include "tcpserver.h"
 
-#include <iostream>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <ev.h>
@@ -14,12 +13,10 @@
 
 #include "logger.h"
 
-
 // Инициализация статического указателя на экземпляр
 TcpServer* TcpServer::s_instance = nullptr;
 
-TcpServer::TcpServer(int port,
-                     const std::string& logFilePath)
+TcpServer::TcpServer(int port, const std::string& logFilePath)
     : m_loop(nullptr),
       m_tcpPort(port),
       m_logFilePath(logFilePath),
