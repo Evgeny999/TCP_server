@@ -14,11 +14,6 @@
 
 #include "logger.h"
 
-// forward declaration объявление структур libev
-struct ev_loop;
-struct ev_io;
-struct ev_timer;
-
 /**
  * @brief Класс для реализации неблокирующего эхо-сервера на libev
  */
