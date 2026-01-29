@@ -1,5 +1,4 @@
-#ifndef LOGGER_H
-#define LOGGER_H
+#pragma once
 
 #include <fstream>
 #include <string>
@@ -42,5 +41,3 @@ public:
 private:
   std::ofstream m_logFile;  // Файл для записи логов
 };
-
-#endif  // LOGGER_H

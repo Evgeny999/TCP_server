@@ -2,7 +2,10 @@
 #include <cstdlib>
 #include <iostream>
 #include <memory>
+
 #include "tcpserver.h"
+
+#define TCP_PORT 5000
 
 std::unique_ptr<TcpServer> g_server;
 
@@ -37,8 +40,9 @@ int main(int argc, char* argv[]) {
   signal(SIGPIPE, SIG_IGN);
 
   try {
-    g_server = std::make_unique<TcpServer>(5000, "", "server.log");
-    std::cout << "Starting TCP echo server on port 5000..." << std::endl;
+    g_server = std::make_unique<TcpServer>(TCP_PORT, "server.log");
+    std::cout << "Starting TCP echo server on port " << TCP_PORT << "..."
+              << std::endl;
     g_server->run();
 
   } catch (const std::exception& e) {

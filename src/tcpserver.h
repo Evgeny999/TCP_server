@@ -1,5 +1,4 @@
-#ifndef TCPSERVER_H
-#define TCPSERVER_H
+#pragma once
 
 #include <arpa/inet.h>
 #include <ev.h>
@@ -26,11 +25,10 @@ class TcpServer {
 public:
   /**
    * @brief Конструктор сервера
-   * @param port Порт для прослушивания TCP (0 для отключения)
-   * @param unixSocketPath Путь к Unix-сокету (пустая строка для отключения)
+   * @param port Порт для прослушивания TCP
    * @param logFilePath Путь к файлу логов
    */
-  TcpServer(int port = 5000, const std::string& unixSocketPath = "",
+  TcpServer(int port = 5000,
             const std::string& logFilePath = "server.log");
 
   TcpServer(const TcpServer& other) = delete;
@@ -68,21 +66,16 @@ private:
 
   // Параметры сервера
   int m_tcpPort;
-  std::string m_unixSocketPath;
   std::string m_logFilePath;
 
   // Watchers для прослушивания сокетов
   ev_io* m_tcpAcceptWatcher;
-  ev_io* m_unixAcceptWatcher;
 
   // Карта клиентов по файловым дескрипторам
   std::unordered_map<int, std::unique_ptr<Client>> m_clients;
 
   // Файловый дескриптор для TCP сокета
   int m_tcpFd;
-
-  // Файловый дескриптор для Unix сокета
-  int m_unixFd;
 
   // Флаг работы сервера
   bool m_running;
@@ -95,12 +88,6 @@ private:
    * @return true если успешно, false в случае ошибки
    */
   bool initTcpServer();
-
-  /**
-   * @brief Инициализация Unix сокета
-   * @return true если успешно, false в случае ошибки
-   */
-  bool initUnixServer();
 
   /**
    * @brief Обработчик нового подключения
@@ -147,5 +134,3 @@ private:
   // Экземпляр для доступа к методам класса из статических callback-функций
   static TcpServer* s_instance;
 };
-
-#endif  // TCPSERVER_H

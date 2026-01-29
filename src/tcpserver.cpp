@@ -1,6 +1,6 @@
-#include <iostream>
-#include "logger.h"
+#include "tcpserver.h"
 
+#include <iostream>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <ev.h>
@@ -11,20 +11,19 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <iostream>
+
 #include "logger.h"
-#include "tcpserver.h"
+
 
 // Инициализация статического указателя на экземпляр
 TcpServer* TcpServer::s_instance = nullptr;
 
-TcpServer::TcpServer(int port, const std::string& unixSocketPath,
+TcpServer::TcpServer(int port,
                      const std::string& logFilePath)
     : m_loop(nullptr),
       m_tcpPort(port),
-      m_unixSocketPath(unixSocketPath),
       m_logFilePath(logFilePath),
       m_tcpAcceptWatcher(nullptr),
-      m_unixAcceptWatcher(nullptr),
       m_tcpFd(-1),
       m_running(false) {
   // Инициализируем логгер
@@ -84,52 +83,6 @@ bool TcpServer::initTcpServer() {
   }
 
   std::cout << "TCP server listening on port " << m_tcpPort << std::endl;
-  return true;
-}
-
-bool TcpServer::initUnixServer() {
-  if (m_unixSocketPath.empty()) {
-    return true;  // Unix-сокет не требуется
-  }
-
-  // Создаем Unix сокет
-  m_unixFd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
-  if (m_unixFd < 0) {
-    std::cerr << "Error creating Unix socket: " << strerror(errno) << std::endl;
-    return false;
-  }
-
-  // Удаляем старый сокетный файл, если он существует
-  unlink(m_unixSocketPath.c_str());
-
-  // Настраиваем адрес Unix сокета
-  struct sockaddr_un serverAddr;
-  memset(&serverAddr, 0, sizeof(serverAddr));
-  serverAddr.sun_family = AF_UNIX;
-  strncpy(serverAddr.sun_path, m_unixSocketPath.c_str(),
-          sizeof(serverAddr.sun_path) - 1);
-
-  // Привязываем сокет к файлу
-  if (bind(m_unixFd, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
-    std::cerr << "Error binding Unix socket: " << strerror(errno) << std::endl;
-    close(m_unixFd);
-    return false;
-  }
-
-  // Устанавливаем права доступа к файлу сокета
-  chmod(m_unixSocketPath.c_str(), 0666);
-
-  // Начинаем прослушивание
-  if (listen(m_unixFd, SOMAXCONN) < 0) {
-    std::cerr << "Error listening on Unix socket: " << strerror(errno)
-              << std::endl;
-    close(m_unixFd);
-    unlink(m_unixSocketPath.c_str());
-    return false;
-  }
-
-  std::cout << "Unix socket server listening on " << m_unixSocketPath
-            << std::endl;
   return true;
 }
 
@@ -307,16 +260,12 @@ std::string TcpServer::getPeerAddress(int fd) const {
     inet_ntop(AF_INET, &s->sin_addr, host, sizeof(host));
     snprintf(port, sizeof(port), "%d", ntohs(s->sin_port));
     return std::string(host) + ":" + port;
-  } else if (addr.ss_family == AF_INET6) {
+  } else {
     struct sockaddr_in6* s = (struct sockaddr_in6*)&addr;
     inet_ntop(AF_INET6, &s->sin6_addr, host, sizeof(host));
     snprintf(port, sizeof(port), "%d", ntohs(s->sin6_port));
     return std::string(host) + ":" + port;
-  } else if (addr.ss_family == AF_UNIX) {
-    return "unix-socket";
   }
-
-  return "unknown";
 }
 
 void TcpServer::logClientData(int clientFd, const char* data, size_t size) {
@@ -345,19 +294,6 @@ void TcpServer::run() {
     m_tcpAcceptWatcher = new ev_io();
     ev_io_init(m_tcpAcceptWatcher, acceptCallback, m_tcpFd, EV_READ);
     ev_io_start(m_loop, m_tcpAcceptWatcher);
-  }
-
-  // Инициализируем Unix сокет сервер
-  if (!m_unixSocketPath.empty()) {
-    if (!initUnixServer()) {
-      std::cerr << "Failed to initialize Unix socket server" << std::endl;
-      return;
-    }
-
-    // Создаем watcher для принятия Unix сокет подключений
-    m_unixAcceptWatcher = new ev_io();
-    ev_io_init(m_unixAcceptWatcher, acceptCallback, m_unixFd, EV_READ);
-    ev_io_start(m_loop, m_unixAcceptWatcher);
   }
 
   std::cout << "Tcp server started" << std::endl;
@@ -392,22 +328,10 @@ void TcpServer::stop() {
     m_tcpAcceptWatcher = nullptr;
   }
 
-  if (m_unixAcceptWatcher) {
-    ev_io_stop(m_loop, m_unixAcceptWatcher);
-    delete m_unixAcceptWatcher;
-    m_unixAcceptWatcher = nullptr;
-  }
-
   // Закрываем файловые дескрипторы серверов
   if (m_tcpFd >= 0) {
     close(m_tcpFd);
     m_tcpFd = -1;
-  }
-
-  if (m_unixFd >= 0) {
-    close(m_unixFd);
-    unlink(m_unixSocketPath.c_str());
-    m_unixFd = -1;
   }
 
   // Уничтожаем основной цикл событий
