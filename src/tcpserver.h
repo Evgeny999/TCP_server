@@ -2,7 +2,6 @@
 #define TCPSERVER_H
 
 #include <arpa/inet.h>
-#include <errno.h>
 #include <ev.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -10,9 +9,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <iostream>
 #include <memory>
-#include <system_error>
 #include <unordered_map>
 #include <vector>
 #include "logger.h"
@@ -21,8 +18,6 @@
 struct ev_loop;
 struct ev_io;
 struct ev_timer;
-
-class Logger;
 
 /**
  * @brief Класс для реализации неблокирующего эхо-сервера на libev
@@ -37,6 +32,11 @@ public:
    */
   TcpServer(int port = 5000, const std::string& unixSocketPath = "",
             const std::string& logFilePath = "server.log");
+
+  TcpServer(const TcpServer& other) = delete;
+  TcpServer(TcpServer&& other) = delete;
+  TcpServer& operator=(const TcpServer& other) = delete;
+  TcpServer& operator=(TcpServer&& other) = delete;
 
   /**
    * @brief Деструктор сервера
