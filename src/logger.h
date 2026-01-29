@@ -37,7 +37,6 @@ public:
 
 private:
   std::ofstream m_logFile;  // Файл для записи логов
-  std::mutex m_mutex;  // Мьютекс для потокобезопасности
 };
 
 #endif  // LOGGER_H
